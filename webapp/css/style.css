@@ -1,0 +1,42 @@
+
+@media (min-width: 80rem) {
+    .sapUiMedia-Std-Desktop .sapUShellApplicationContainer.sapUShellApplicationContainerLimitedWidth {
+        width: 100%!important;
+    }
+}
+
+/* ObjectPageSection title normal case */
+.sapUxAPObjectPageSectionHeaderTitle {
+    text-transform: none !important;
+}
+
+
+
+.verticalSeparator {
+    width: 2px; /* line thickness */
+    background-color: #ccc; /* line color */
+    margin: 0 10px; /* tables ke beech gap */
+    flex-grow: 1;
+}
+#_IDGenToolbarSeparator1 {
+    height: 100%;           /* Separator vertically stretch ho */
+    border-left: 1px solid #ccc; 
+}
+
+.verticalLine {
+    width: 1px;
+    height: 70vh;
+    border-left: 1px solid #ccc;
+    margin: 0 10px;
+}
+
+
+
+[id$="---View1--_IDGenTable"],
+[id$="---View1--_IDGenTable2"]
+ {
+    height: 70vh!important;
+    overflow-y: auto;
+}
+
+
