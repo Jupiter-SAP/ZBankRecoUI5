@@ -21,6 +21,6 @@ builder:
           name: Z_BANKRECO_APP
           description: BANK RECONCILIATION APP
           package: Z_BANKRECO
-          transport: TJYK901175
+          transport: TJYK901412
         exclude:
           - /test/

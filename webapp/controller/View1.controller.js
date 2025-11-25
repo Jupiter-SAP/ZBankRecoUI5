@@ -10,10 +10,9 @@ sap.ui.define([
     "sap/ui/model/FilterOperator",
     "sap/m/BusyDialog",
     "sap/ui/comp/filterbar/FilterBar",
+     "sap/ui/export/Spreadsheet"
 
-
-
-], (Controller, JSONModel, MessageToast, MessageBox, DateFormat, BusyIndicator, ValueHelpDialog, Filter, FilterOperator, BusyDialog, FilterBar, FilterGroupItem) => {
+], (Controller, JSONModel, MessageToast, MessageBox, DateFormat, BusyIndicator, ValueHelpDialog, Filter, FilterOperator,Spreadsheet, FilterBar, FilterGroupItem) => {
     "use strict";
 
     return Controller.extend("zbankrecoapp.controller.View1", {
@@ -49,12 +48,17 @@ sap.ui.define([
             const oTable2 = this.byId("_IDGenTable2");
 
             oTable1.attachSort((oEvent) => {
+                
+                const sortProperty = oEvent.getParameter("column").getSortProperty();
+                this.bookSortProperty = sortProperty;
                 this.bookSortOrder = oEvent.getParameter("sortOrder");
                 that._loadBookTransactions();
             });
 
             oTable2.attachSort((oEvent) => {
                 this.statementSortOrder = oEvent.getParameter("sortOrder");
+                const sortProperty = oEvent.getParameter("column").getSortProperty();
+                this.statementSortProperty = sortProperty;
                 that._loadStatementTransactions();
             });
 
@@ -62,31 +66,48 @@ sap.ui.define([
 
         _loadBookTransactions: function () {
             var that = this;
-
             that.ODataModel.read(`/BankReco('${that.oModel.getProperty("/BankRecoId")}')/to_Booktrans`, {
                 filters: [
-                    that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
-                ],
+                    that.oModel.getProperty("/Remaining") && new sap.ui.model.Filter("ClearedVoucherno", sap.ui.model.FilterOperator.EQ, "")
+                ].filter(Boolean),
+
                 urlParameters: {
                     "$top": "500"
                 },
 
-                success: function (data) {
-                    const sortedData = data.results
-                        .map((item) => ({
-                            ...item,
-                            Dates: sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
-                            ClearedDate: item.ClearedDate ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate)) : "",
-                        }))
-                        .sort((a, b) => that.bookSortOrder === "Ascending"
-                            ? (a.Amount - b.Amount)
-                            : (b.Amount - a.Amount));
+        success: function (data) {
+ 
+            const sortedData = data.results
+                .map((item) => ({
+                    ...item,
+                    Dates: sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+                    ClearedDate: item.ClearedDate
+                        ? sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate))
+                        : "",
+                    NumericAmount:parseFloat(item.Amount)
+                }))
+                .sort((a, b) => {
+                    const property = that.bookSortProperty;
+                    const order = that.bookSortOrder;
 
-                    that.oModel.setProperty("/BookTransactions", sortedData);
-                    console.log(that.oModel.getProperty("/BookTransactions"))
-                }
-            });
-        },
+                    let aVal = a[property];
+                    let bVal = b[property];
+
+                    const aNum = parseFloat(aVal);
+                    const bNum = parseFloat(bVal);
+
+                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return order === "Ascending" ? aNum - bNum : bNum - aNum;
+                    }
+
+                    if (aVal < bVal) return order === "Ascending" ? -1 : 1;
+                    if (aVal > bVal) return order === "Ascending" ? 1 : -1;
+                    return 0;
+                });
+            that.oModel.setProperty("/BookTransactions", sortedData);
+        }
+    });
+},
 
         _loadStatementTransactions: function () {
             var that = this;
@@ -100,19 +121,41 @@ sap.ui.define([
                     const sortedData = data.results
                         .map((item) => ({
                             ...item,
-                            Dates: sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates))
+                            Dates: sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+                            DecimalAmount:parseFloat(item.Amount)
                         }))
-                        .sort((a, b) => that.statementSortOrder === "Ascending"
-                            ? (a.Amount - b.Amount)
-                            : (b.Amount - a.Amount));
+                       .sort((a, b) => {
+                    const property = that.bookSortProperty;
+                    const order = that.bookSortOrder;
+
+                    let aVal = a[property];
+                    let bVal = b[property];
+
+                    const aNum = parseFloat(aVal);
+                    const bNum = parseFloat(bVal);
+                 
+                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                        return order === "Ascending" ? aNum - bNum : bNum - aNum;
+                    }
+
+                    const aDate = Date.parse(aVal);
+                    const bDate = Date.parse(bVal);
+                    if (!isNaN(aDate) && !isNaN(bDate)) {
+                        return order === "Ascending" ? aDate - bDate : bDate - aDate;
+                    }
+
+                    if (aVal < bVal) return order === "Ascending" ? -1 : 1;
+                    if (aVal > bVal) return order === "Ascending" ? 1 : -1;
+                    return 0;
+                });
 
                     that.oModel.setProperty("/StatementTransactions", sortedData);
-                    console.log(that.oModel.getProperty("/StatementTransactions"))
                 }
             });
         },
 
         _loadBankRecoData: function (sBankRecoId) {
+            
             var that = this;
             BusyIndicator.show();
 
@@ -134,13 +177,12 @@ sap.ui.define([
                         };
                     }));
                 },
-
                 error: function () {
                     MessageBox.error("Failed to load Book transactions");
                 }
             });
 
-
+          
             // Load Statement Transactions
             that.ODataModel.read(`/BankReco('${sBankRecoId}')/to_StatementTrans`, {
                 filters: [
@@ -157,15 +199,13 @@ sap.ui.define([
                             DecimalAmount: parseFloat(item.Amount)
                         };
                     }));
-                    BusyIndicator.hide();
                     MessageToast.show("Data loaded for BankRecoId: " + sBankRecoId);
                 },
                 error: function () {
-                    BusyIndicator.hide();
                     MessageBox.error("Failed to load Statement transactions");
                 }
             });
-
+           
             // Load header data
             that.ODataModel.read(`/BankReco('${sBankRecoId}')`, {
                 success: function (oData) {
@@ -180,22 +220,20 @@ sap.ui.define([
                     that.oModel.setProperty("/isEditable", false);
 
                     if (that.oModel.getProperty("/Status") === "Posted" || that.oModel.getProperty("/Status") === "Released") {
-                        that.oModel.setProperty("/isButton1Visible", false);
+                          that.oModel.setProperty("/isButton1Visible", false);
+                        
                     }
                     else if (that.oModel.getProperty("/Status") === "Posted") {
                         that.oModel.setProperty("/isButton2Visible", false);
                     }
                     else {
-
                     }
-
-
+                    BusyIndicator.hide();
                 },
                 error: function () {
                     MessageBox.error("Failed to load BankReco header data");
                 }
             });
-
             //      var sStatus = that.oModel.getProperty("/Status");
 
             // if (sStatus === "Released" || sStatus === "Posted") {
@@ -337,8 +375,6 @@ sap.ui.define([
                         text: "BankrecoId :"
                     }),
                     that.oInput
-
-
                 ],
                 beginButton: new sap.m.Button({
 
@@ -376,18 +412,65 @@ sap.ui.define([
             Dialog.open();
         },
 
+           onPrint: function () {
+      
+            var oData = this.oModel.getData();
+            var Statementdate = oData.Statementdate;
+            Statementdate = Statementdate.replace(/-/g,'');
 
+            var url1 = "/sap/bc/http/sap/ZHTTP_BRSREPORT?";
+            var url2 = "&bankrecoid=" + oData.BankRecoId;
 
+            var oBusyDialog = new sap.m.BusyDialog({
+                title: "Please Wait...",
+                text: "Fetching Data"
+            });
+            oBusyDialog.open();
 
+            var url = url1 + url2 ;
+            $.ajax({
+                url: url,
+                type: "GET",
+                beforeSend: function (xhr) {
+                    xhr.withCredentials = true;
+                },
+                success: function (result) {
+                    if (result.includes("Timeout") || result.includes("error") || result.includes("Error in generating brs report")) {
+                        MessageToast.show(result);
+                        oBusyDialog.close();
+                        return;
+                    }
 
+                    var decodedPdfContent = atob(result);
+                    var byteArray = new Uint8Array(decodedPdfContent.length);
+                    for (var i = 0; i < decodedPdfContent.length; i++) {
+                        byteArray[i] = decodedPdfContent.charCodeAt(i);
+                    }
+                    var blob = new Blob([byteArray.buffer], { type: 'application/pdf' });
+                    var _pdfurl = URL.createObjectURL(blob);
+                    
+                    if (!this._PDFViewer) {
+                        this._PDFViewer = new sap.m.PDFViewer({
+                            width: "auto",
+                            source: _pdfurl
+                        });
+                        jQuery.sap.addUrlWhitelist("blob");
+                    } else {
+                        this._PDFViewer.setSource(_pdfurl);
+                    }
+                    oBusyDialog.close();
+                    this._PDFViewer.open();
 
+                }.bind(this),
+                error: function () {
+                    sap.m.MessageBox.show("Something went wrong");
+                    oBusyDialog.close();
+                }
+            });
 
+        },
 
-
-        //FETCH AND SAVe
-
-
-
+        //FETCH AND SAVE
 
         onfetchandsave() {
             var oData = this.oModel.getData();
@@ -429,6 +512,7 @@ sap.ui.define([
                                     ...item,
                                     Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
                                     ClearedDate: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate)),
+                                    NumericAmount: parseFloat(item.Amount)
                                 }
                             }));
                         },
@@ -443,7 +527,8 @@ sap.ui.define([
                             that.oModel.setProperty("/StatementTransactions", data.results.map((item) => {
                                 return {
                                     ...item,
-                                    Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates))
+                                    Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+                                    DecimalAmount: parseFloat(item.Amount)
                                 }
                             }));
                             BusyIndicator.hide();
@@ -462,6 +547,7 @@ sap.ui.define([
 
         //MARK DATA
         onMark() {
+            
             var oTable1 = this.byId("_IDGenTable");
             var oTable2 = this.byId("_IDGenTable2");
             let that = this;
@@ -529,14 +615,16 @@ sap.ui.define([
                 data: JSON.stringify(pPayload),
                 dataType: "json",
                 success: (response) => {
-
+                        oTable1.clearSelection();
+                        oTable2.clearSelection();
                     if (response.Status === 'E') {
                         MessageBox.error(response.Message);
                         return;
                     }
                     else if (response.status === 'S') {
                         this.byId("_IDGenTable").getBinding("rows").refresh();
-                        this.byId("_IDGenTabled2").getBinding("rows").refresh();
+                        this.byId("_IDGenTable2").getBinding("rows").refresh();
+
 
                         MessageBox.show(response.Message);
 
@@ -551,7 +639,9 @@ sap.ui.define([
                                 .map((item) => {
                                     return {
                                         ...item,
-                                        Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates))
+                                        Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+                                        DecimalAmount: parseFloat(item.Amount)
+                                       
                                     };
                                 })
                                 .sort((a, b) => that.statementSortOrder === 'Ascending' ? (a.Amount - b.Amount) : (b.Amount - a.Amount));
@@ -577,7 +667,9 @@ sap.ui.define([
                                 .map((item) => {
                                     return {
                                         ...item,
-                                        Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates))
+                                        Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+                                        NumericAmount: parseFloat(item.Amount)
+                                        
                                     };
                                 })
                                 .sort((a, b) => that.bookSortOrder === 'Ascending' ? (a.Amount - b.Amount) : (b.Amount - a.Amount));
@@ -592,14 +684,14 @@ sap.ui.define([
                         }
                     });
 
-
-
                 },
                 error: (xhr, status, error) => {
 
                     MessageBox.error(error);
                     return;
                 }
+
+                
             });
             BusyIndicator.hide();
 
@@ -663,9 +755,13 @@ sap.ui.define([
                 data: JSON.stringify(pPayload),
                 dataType: "json",
                 success: function (response) {
-
+                       oTable1.clearSelection();
+                       oTable2.clearSelection();
 
                     if (response && response.Status === "S") {
+                        that.byId("_IDGenTable").getBinding("rows").refresh();
+                        that.byId("_IDGenTable2").getBinding("rows").refresh();
+
 
                         that.oModel.setProperty("/Status", "Pending");
 
@@ -679,7 +775,9 @@ sap.ui.define([
                                     .map((item) => {
                                         return {
                                             ...item,
-                                            Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates))
+                                            Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+                                            DecimalAmount: parseFloat(item.Amount)
+                                            
                                         };
                                     })
                                     .sort((a, b) => that.statementSortOrder === 'Ascending' ? (a.Amount - b.Amount) : (b.Amount - a.Amount));
@@ -705,7 +803,9 @@ sap.ui.define([
                                     .map((item) => {
                                         return {
                                             ...item,
-                                            Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates))
+                                            Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+                                            NumericAmount: parseFloat(item.Amount)
+                                           
                                         };
                                     })
                                     .sort((a, b) => that.bookSortOrder === 'Ascending' ? (a.Amount - b.Amount) : (b.Amount - a.Amount));
@@ -720,6 +820,7 @@ sap.ui.define([
                         BusyIndicator.hide();
                         MessageBox.error(response && response.Message ? response.Message : "Failed to unmark transaction");
                     }
+
                 },
                 error: function (xhr, status, error) {
                     BusyIndicator.hide();
@@ -762,16 +863,15 @@ sap.ui.define([
                             that.oModel.setProperty("/BookTransactions", data.results.map((item) => {
                                 return {
                                     ...item,
-
                                     Dates: item.Dates ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)) : "",
-
                                     ClearedDate: item.Cleared ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate)) : "",
-
+                                    NumericAmount: parseFloat(item.Amount)
+                                    
                                 };
                             }));
 
-
                             that.oModel.setProperty("/Status", "Released");
+
                             that.ODataModel.read(`/BankReco('${that.oModel.getProperty("/BankRecoId")}')/to_Booktrans`, {
                                 filters: [
                                     that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
@@ -785,6 +885,7 @@ sap.ui.define([
                                             ...item,
                                             Dates: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
                                             ClearedDate: DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate)),
+                                            NumericAmount: parseFloat(item.Amount)
                                         }
                                     }));
                                 },
@@ -804,11 +905,8 @@ sap.ui.define([
                             that.oModel.setProperty("/StatementTransactions", data.results.map((item) => {
                                 return {
                                     ...item,
-
-                                    Dates: item.Dates ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)) : ""
-
-
-
+                                    Dates: item.Dates ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)) : "",
+                                    DecimalAmount: parseFloat(item.Amount)
                                 };
 
                             }));
@@ -1233,7 +1331,8 @@ sap.ui.define([
                         return {
                             ...item,
                             Dates: item.Dates ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)) : "",
-                            ClearedDate: item.ClearedDate ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate)) : ""
+                            ClearedDate: item.ClearedDate ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate)) : "",
+                            NumericAmount: parseFloat(item.Amount)
                         };
                     }));
                 },
@@ -1254,7 +1353,8 @@ sap.ui.define([
                     that.oModel.setProperty("/StatementTransactions", oData.results.map((item) => {
                         return {
                             ...item,
-                            Dates: item.Dates ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)) : ""
+                            Dates: item.Dates ? DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)) : "",
+                            DecimalAmount: parseFloat(item.Amount)
                         };
                     }));
                     BusyIndicator.hide();
@@ -1328,7 +1428,121 @@ sap.ui.define([
 
 
 
+        },
+        onExportBook: function () {
+        var that = this;
+        
+        const oTable1 = that.byId("_IDGenTable");
+        const oBinding = oTable1.getBinding("rows");
+        const aAllFilteredContexts = oBinding.getContexts(0, oBinding.getLength());
+        const aData = aAllFilteredContexts.map(ctx => ctx.getObject());
+
+            if (!aData || aData.length === 0) {
+                MessageToast.show("No data to export!");
+                return;
+            }
+
+            var aCols = that._createColumnConfig();
+
+            var oSpreadsheet = new sap.ui.export.Spreadsheet({
+                workbook: {
+                    columns: aCols,
+                    hierarchyLevel: "level"
+                },
+                dataSource: aData,
+                fileName: "Bookdata.xlsx"
+            });
+
+            oSpreadsheet.build()
+                .then(() => {
+                    MessageToast.show("Export finished.");
+                })
+                .catch((sError) => {
+                    MessageToast.show("Error during export: " + sError);
+                });
+},
+
+     _createColumnConfig: function () {
+            return [
+                { label: "Voucher No", property: "VoucherNo", type: "string" },
+                { label: "Party Code", property: "Partycode", type: "string" },
+                { label: "Party Name", property: "Partyname", type: "string" },
+                { label: "Payment Type", property: "Paymenttype", type: "string" },
+                { label: "AssignmentRef", property: "AssignmentRef", type: "string" },
+                { label: "Dates", property: "Dates", type: "string" },
+                { label: "Amount", property: "Amount", type: "number" },
+                { label: "Cleared Date", property: "ClearedDate", type: "string" },
+                { label: "Cleared Voucher No", property: "ClearedVoucherno", type: "string" }
+            ];
+        },
+      onExportStatement: function () {
+        var that = this;
+
+        const oTable2 = that.byId("_IDGenTable2");
+        const oBinding = oTable2.getBinding("rows");
+
+        const aAllFilteredContexts = oBinding.getContexts(0, oBinding.getLength());
+        let aData = aAllFilteredContexts.map(ctx => ctx.getObject());
+
+        if (!aData || aData.length === 0) {
+            MessageToast.show("No data to export!");
+            return;
         }
+
+        aData = aData.map((item) => ({
+            ...item,
+            Dates: item.Dates
+                ? sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates))
+                : "",
+            ClearedDate: item.ClearedDate
+                ? sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate))
+                : "",
+            Amount: item.Amount || 0
+        }));
+
+        var aCols = that._createColumnC();
+
+        var oSpreadsheet = new sap.ui.export.Spreadsheet({
+            workbook: {
+                columns: aCols,
+                hierarchyLevel: "level"
+            },
+            dataSource: aData,
+            fileName: "Statementdata.xlsx"
+        });
+
+        oSpreadsheet.build()
+            .then(() => {
+                MessageToast.show("Export finished.");
+            })
+            .catch((sError) => {
+                MessageToast.show("Error during export: " + sError);
+            });
+    },
+        _createColumnC: function () {
+            return [
+                { label: "Voucher No", property: "VoucherNo", type: "string" },
+                { label: "Dates", property: "Dates", type: "string" },
+                { label: "Utr", property: "Utr", type: "string" },
+                { label: "Payment Type", property: "PaymentType", type: "string" },
+                { label: "Description", property: "Description", type: "string" },
+        
+                { label: "Amount", property: "Amount", type: "number" },
+                
+                { label: "Cleared Voucher No", property: "ClearedVoucherno", type: "string" }
+            ];
+        },
+
+
+        
+            
+
+
+
+
+        
+
+
 
 
     });

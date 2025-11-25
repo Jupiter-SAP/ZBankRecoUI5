@@ -67,7 +67,7 @@
                         id="clear"
                         text="Clear"
                         press=".onClear"
-                    />
+                    />  
                     <Button
                         id="delete"
                         text="Delete"
@@ -230,7 +230,10 @@
                                         text="Book Transactions"
                                         level="H3"
                                     />
-
+                                    <HBox id="_IDGenHBox1"
+                                    justifyContent="End" >
+                                    <Button id="_IDGenButton3" text="Export" press="onExportBook" />
+                                     </HBox>
                                     <t:Table
                                         id="_IDGenTable"
                                         rows="{/BookTransactions}"
@@ -241,7 +244,6 @@
                                         class="noScrollTable"
                                     >
                            
-
                                         <t:columns>
                                             <t:Column
                                                 id="_IDGenColumn1"
@@ -471,6 +473,10 @@
                                         text="Statement Transactions"
                                         level="H3"
                                     />
+                                    <HBox id="_IDGenHBox2"
+                                    justifyContent="End" >
+                                    <Button id="_IDGenButton2"  text="Export" press="onExportStatement" />
+                                     </HBox>
                                     <t:Table
                                         id="_IDGenTable2"
                                         rows="{/StatementTransactions}"
@@ -478,8 +484,6 @@
                                         enableColumnReordering="true"
                                         rowMode="{ui>/rowMode}"
                                         width="100%"
-                                        enableCellFilter="true"
-                                        showColumnVisibilityMenu="true"
                                         class="noScrollTable"
                                     >
                                         <t:columns>
