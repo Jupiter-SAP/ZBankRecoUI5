@@ -30,37 +30,49 @@
                     <Button
                         id="_IDGenButton"
                         text="Fetch Data"
-                        visible="{= ${/isButton1Visible} === true}"
+                        visible="{= ${/isLockedButtonVisible} === true}"
                         press="onfetchandsave"
                     />
                     <Button
                         id="_IDGenButton1"
                         text="Mark"
-                        visible="{= ${/isButton1Visible} === true}"
+                        visible="{= ${/isLockedButtonVisible} === true}"
                         press=".onMark"
                     />
                     <Button
                         id="_IDGenButton5"
                         text="Unmark"
-                        visible="{= ${/isButton1Visible} === true}"
+                        visible="{= ${/isLockedButtonVisible} === true}"
                         press=".onUnMark"
+                    />
+                     <Button
+                        id="_IDGenButtonPrint"
+                        text="Print"
+                        visible="{= ${/isPrintButtonVisible} === true}"
+                        press=".onPrint"
+                    />
+                     <Button
+                        id="_IDGenButton51"
+                        text="Lock"
+                        visible="{= ${/isLockedButtonVisible} === true}"
+                        press=".onLock"
                     />
                     <Button
                         id="_IDGenButton6"
                         text="Download"
-                        visible="{= ${/isButton1Visible} === false}"
+                        visible="{= ${/isDownloadable} === true}"
                         press=".onDownload"
                     />
                     <Button
                         id="_IDGenButton7"
                         text="Validate"
-                        visible="{= ${/isButton2Visible} === true}"
+                        visible="{= ${/isValidateVisible} === true}"
                         press="onValidate"
                     />
                     <Button
                         id="_IDGenButton8"
                         text="UTR Marking"
-                        visible="{= ${/isButton1Visible} === true}"
+                        visible="{= ${/isLockedButtonVisible} === true}"
                         press="onUTRMarking"
                     />
                     <Button
@@ -71,7 +83,7 @@
                     <Button
                         id="delete"
                         text="Delete"
-                        visible="{= ${/isButton1Visible} === true}"
+                        visible="{= ${/isLockedButtonVisible} === true}"
                         press=".onDelete"
                     />
                 </uxap:actions>

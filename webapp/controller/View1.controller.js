@@ -32,9 +32,10 @@ sap.ui.define([
                 Status: "",
                 FiscalYear: "",
                 BankName: "",
-                isButton1Visible: true,
-                isButton2Visible: true,
-
+                isDownloadable: false,
+                isValidateVisible: false,
+                isLockedButtonVisible: true,
+                isPrintButtonVisible: false,
             });
 
             const oView = this.getView();
@@ -76,7 +77,6 @@ sap.ui.define([
                 },
 
         success: function (data) {
- 
             const sortedData = data.results
                 .map((item) => ({
                     ...item,
@@ -153,7 +153,7 @@ sap.ui.define([
                 }
             });
         },
-
+        
         _loadBankRecoData: function (sBankRecoId) {
             
             var that = this;
@@ -220,13 +220,21 @@ sap.ui.define([
                     that.oModel.setProperty("/isEditable", false);
 
                     if (that.oModel.getProperty("/Status") === "Posted" || that.oModel.getProperty("/Status") === "Released") {
-                          that.oModel.setProperty("/isButton1Visible", false);
-                        
+                        that.oModel.setProperty("/isDownloadable", true);
+                        that.oModel.setProperty("/isValidateVisible", false);
+                        that.oModel.setProperty("/isLockedButtonVisible", false);
+                        that.oModel.setProperty("/isPrintButtonVisible", false);
                     }
-                    else if (that.oModel.getProperty("/Status") === "Posted") {
-                        that.oModel.setProperty("/isButton2Visible", false);
+                    else if(that.oModel.getProperty("/Status") === "Locked"){
+                        that.oModel.setProperty("/isLockedButtonVisible", false);
+                        that.oModel.setProperty("/isPrintButtonVisible", true);
+                        that.oModel.setProperty("/isValidateVisible", true);
+                        that.oModel.setProperty("/isDownloadable", false);
                     }
                     else {
+                        that.oModel.setProperty("/isValidateVisible", false);
+                        that.oModel.setProperty("/isDownloadable", false);
+                        that.oModel.setProperty("/isLockedButtonVisible", true);
                     }
                     BusyIndicator.hide();
                 },
@@ -255,6 +263,47 @@ sap.ui.define([
             //     }
             // });
             // }
+        },
+
+        onLock: function () {
+            var that = this;
+            var sBankRecoId = that.oModel.getProperty("/BankRecoId");
+
+            if (!sBankRecoId) {
+                MessageBox.warning("BankRecoId is required!");
+                return;
+            }
+
+            BusyIndicator.show();
+
+            var oPayload = {
+                Status: "Locked"
+            };
+
+            that.ODataModel.update(`/BankReco('${sBankRecoId}')`, oPayload, {
+                method: "PATCH",
+                headers: {
+                    "If-Match": "*"    
+                },
+                success: function () {
+                    BusyIndicator.hide();
+
+                    that.oModel.setProperty("/isLockedButtonVisible",false);
+                    that.oModel.setProperty("/isPrintButtonVisible",true);
+                    that.oModel.setProperty("/isValidateVisible", true);
+                    that.oModel.setProperty("/isDownloadable", false);
+
+                    that.ODataModel.read(`/BankReco('${sBankRecoId}')`, {
+                        success: function (oData) {
+                            that.oModel.setProperty("/Status", oData.Status);
+                        }
+                    });
+                },
+                error: function (oError) {
+                    BusyIndicator.hide();
+                    MessageBox.error("Failed to update Status!");
+                }
+            });
         },
 
         onDownload: function () {
@@ -415,8 +464,7 @@ sap.ui.define([
            onPrint: function () {
       
             var oData = this.oModel.getData();
-            var Statementdate = oData.Statementdate;
-            Statementdate = Statementdate.replace(/-/g,'');
+
 
             var url1 = "/sap/bc/http/sap/ZHTTP_BRSREPORT?";
             var url2 = "&bankrecoid=" + oData.BankRecoId;
@@ -427,7 +475,7 @@ sap.ui.define([
             });
             oBusyDialog.open();
 
-            var url = url1 + url2 ;
+            var url = url1 + url2  ;
             $.ajax({
                 url: url,
                 type: "GET",
@@ -871,7 +919,9 @@ sap.ui.define([
                             }));
 
                             that.oModel.setProperty("/Status", "Released");
-
+                            that.oModel.setProperty("/isDownloadable", true);
+                            that.oModel.setProperty("/isValidateVisible", false);
+                            that.oModel.setProperty("/isPrintButtonVisible", false);
                             that.ODataModel.read(`/BankReco('${that.oModel.getProperty("/BankRecoId")}')/to_Booktrans`, {
                                 filters: [
                                     that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
