@@ -21,6 +21,7 @@
         <uxap:headerTitle>
             <uxap:ObjectPageHeader id="_IDGenObjectPageHeader">
                 <uxap:actions>
+
                     <Button
                         id="_IDGenButton4"
                         text="GetBankRecoID"
@@ -210,6 +211,7 @@
                                         selected="{/Remaining}"
                                         select="onRemainingSelect"
                                     />
+
                                 </VBox>
                             </f:SimpleForm>
                         </uxap:blocks>

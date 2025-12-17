@@ -65,95 +65,183 @@ sap.ui.define([
 
         },
 
+//         _loadBookTransactions: function () {
+//             var that = this;
+//             that.ODataModel.read(`/BankReco('${that.oModel.getProperty("/BankRecoId")}')/to_Booktrans`, {
+//                 filters: [
+//                     that.oModel.getProperty("/Remaining") && new sap.ui.model.Filter("ClearedVoucherno", sap.ui.model.FilterOperator.EQ, "")
+//                 ].filter(Boolean),
+
+//                 urlParameters: {
+//                     "$top": "500"
+//                 },
+
+//         success: function (data) {
+//             const sortedData = data.results
+//                 .map((item) => ({
+//                     ...item,
+//                     Dates: sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+//                     ClearedDate: item.ClearedDate
+//                         ? sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate))
+//                         : "",
+//                     NumericAmount:parseFloat(item.Amount)
+//                 }))
+//                 .sort((a, b) => {
+//                     const property = that.bookSortProperty;
+//                     const order = that.bookSortOrder;
+
+//                     let aVal = a[property];
+//                     let bVal = b[property];
+
+//                     const aNum = parseFloat(aVal);
+//                     const bNum = parseFloat(bVal);
+
+//                     if (!isNaN(aNum) && !isNaN(bNum)) {
+//                     return order === "Ascending" ? aNum - bNum : bNum - aNum;
+//                     }
+
+//                     if (aVal < bVal) return order === "Ascending" ? -1 : 1;
+//                     if (aVal > bVal) return order === "Ascending" ? 1 : -1;
+//                     return 0;
+//                 });
+//             that.oModel.setProperty("/BookTransactions", sortedData);
+//         }
+//     });
+// },
+
         _loadBookTransactions: function () {
             var that = this;
-            that.ODataModel.read(`/BankReco('${that.oModel.getProperty("/BankRecoId")}')/to_Booktrans`, {
-                filters: [
-                    that.oModel.getProperty("/Remaining") && new sap.ui.model.Filter("ClearedVoucherno", sap.ui.model.FilterOperator.EQ, "")
-                ].filter(Boolean),
+            let allData = that.oModel.getProperty("/BookTransactions");
+            if (!allData) {
+                return;
+            }
 
-                urlParameters: {
-                    "$top": "500"
-                },
+            let filteredData = allData.filter(item => {
+                return that.oModel.getProperty("/Remaining") 
+                    ? !item.ClearedVoucherno 
+                    : true;
+            });
 
-        success: function (data) {
-            const sortedData = data.results
-                .map((item) => ({
+            filteredData = filteredData.map(item => ({
+                ...item,
+                Dates: item.Dates 
+                    ? sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)) 
+                    : "",
+                ClearedDate: item.ClearedDate 
+                    ? sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate)) 
+                    : "",
+                NumericAmount: parseFloat(item.Amount)
+            }));
+
+            if (this.bookSortProperty) {
+                filteredData.sort((a, b) => {
+                    let aVal = a[this.bookSortProperty];
+                    let bVal = b[this.bookSortProperty];
+
+                    let aNum = parseFloat(aVal);
+                    let bNum = parseFloat(bVal);
+
+                    if (!isNaN(aNum) && !isNaN(bNum)) {
+                        return that.bookSortOrder === "Ascending" ? aNum - bNum : bNum - aNum;
+                    }
+
+                    return that.bookSortOrder === "Ascending" 
+                        ? (aVal > bVal ? 1 : -1)
+                        : (aVal < bVal ? 1 : -1);
+                });
+            }
+
+            that.oModel.setProperty("/BookTransactions", filteredData);
+        },
+
+        // _loadStatementTransactions: function () {
+        //     var that = this;
+
+        //     that.ODataModel.read(`/BankReco('${that.oModel.getProperty("/BankRecoId")}')/to_StatementTrans`, {
+        //         filters: [
+        //             that.oModel.getProperty("/Remaining") && new sap.ui.model.Filter("ClearedVoucherno", sap.ui.model.FilterOperator.EQ, "")
+        //         ].filter(Boolean),
+
+        //         success: function (data) {
+        //             const sortedData = data.results
+        //                 .map((item) => ({
+        //                     ...item,
+        //                     Dates: sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+        //                     DecimalAmount:parseFloat(item.Amount)
+        //                 }))
+        //                .sort((a, b) => {
+        //             const property = that.statementSortProperty;
+        //             const order = that.statementSortOrder;
+
+        //             let aVal = a[property];
+        //             let bVal = b[property];
+
+        //             const aNum = parseFloat(aVal);
+        //             const bNum = parseFloat(bVal);
+                 
+        //             if (!isNaN(aNum) && !isNaN(bNum)) {
+        //                 return order === "Ascending" ? aNum - bNum : bNum - aNum;
+        //             }
+
+        //             const aDate = Date.parse(aVal);
+        //             const bDate = Date.parse(bVal);
+        //             if (!isNaN(aDate) && !isNaN(bDate)) {
+        //                 return order === "Ascending" ? aDate - bDate : bDate - aDate;
+        //             }
+
+        //             if (aVal < bVal) return order === "Ascending" ? -1 : 1;
+        //             if (aVal > bVal) return order === "Ascending" ? 1 : -1;
+        //             return 0;
+        //         });
+
+        //             that.oModel.setProperty("/StatementTransactions", sortedData);
+        //         }
+        //     });
+        // },
+        
+        _loadStatementTransactions: function () {
+                var that = this;
+                let allData = that.oModel.getProperty("/StatementTransactions");
+
+                if (!allData) {
+                    return;
+                }
+
+                let filteredData = allData.filter(item => {
+                    return that.oModel.getProperty("/Remaining")
+                        ? !item.ClearedVoucherno   
+                        : true;                     
+                });
+
+                filteredData = filteredData.map(item => ({
                     ...item,
-                    Dates: sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
+                    Dates: item.Dates
+                        ? sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates))
+                        : "",
                     ClearedDate: item.ClearedDate
                         ? sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.ClearedDate))
                         : "",
-                    NumericAmount:parseFloat(item.Amount)
-                }))
-                .sort((a, b) => {
-                    const property = that.bookSortProperty;
-                    const order = that.bookSortOrder;
+                    DecimalAmount: parseFloat(item.Amount)
+                }));
 
-                    let aVal = a[property];
-                    let bVal = b[property];
-
-                    const aNum = parseFloat(aVal);
-                    const bNum = parseFloat(bVal);
-
-                    if (!isNaN(aNum) && !isNaN(bNum)) {
-                    return order === "Ascending" ? aNum - bNum : bNum - aNum;
-                    }
-
-                    if (aVal < bVal) return order === "Ascending" ? -1 : 1;
-                    if (aVal > bVal) return order === "Ascending" ? 1 : -1;
-                    return 0;
-                });
-            that.oModel.setProperty("/BookTransactions", sortedData);
-        }
-    });
-},
-
-        _loadStatementTransactions: function () {
-            var that = this;
-
-            that.ODataModel.read(`/BankReco('${that.oModel.getProperty("/BankRecoId")}')/to_StatementTrans`, {
-                filters: [
-                    that.oModel.getProperty("/Remaining") && new sap.ui.model.Filter("ClearedVoucherno", sap.ui.model.FilterOperator.EQ, "")
-                ].filter(Boolean),
-
-                success: function (data) {
-                    const sortedData = data.results
-                        .map((item) => ({
-                            ...item,
-                            Dates: sap.ui.core.format.DateFormat.getDateInstance({ pattern: "yyyy-MM-dd" }).format(new Date(item.Dates)),
-                            DecimalAmount:parseFloat(item.Amount)
-                        }))
-                       .sort((a, b) => {
-                    const property = that.bookSortProperty;
-                    const order = that.bookSortOrder;
-
-                    let aVal = a[property];
-                    let bVal = b[property];
-
-                    const aNum = parseFloat(aVal);
-                    const bNum = parseFloat(bVal);
-                 
-                    if (!isNaN(aNum) && !isNaN(bNum)) {
-                        return order === "Ascending" ? aNum - bNum : bNum - aNum;
-                    }
-
-                    const aDate = Date.parse(aVal);
-                    const bDate = Date.parse(bVal);
-                    if (!isNaN(aDate) && !isNaN(bDate)) {
-                        return order === "Ascending" ? aDate - bDate : bDate - aDate;
-                    }
-
-                    if (aVal < bVal) return order === "Ascending" ? -1 : 1;
-                    if (aVal > bVal) return order === "Ascending" ? 1 : -1;
-                    return 0;
-                });
-
-                    that.oModel.setProperty("/StatementTransactions", sortedData);
+                if (that.statementSortProperty) {
+                    filteredData.sort((a, b) => {
+                        let aVal = a[that.statementSortProperty];
+                        let bVal = b[that.statementSortProperty];
+                        let aNum = parseFloat(aVal);
+                        let bNum = parseFloat(bVal);
+                        if (!isNaN(aNum) && !isNaN(bNum)) {
+                            return that.statementSortOrder === "Ascending" ? aNum - bNum : bNum - aNum;
+                        }
+                        return that.statementSortOrder === "Ascending"
+                            ? (aVal > bVal ? 1 : -1)
+                            : (aVal < bVal ? 1 : -1);
+                    });
                 }
-            });
-        },
-        
+
+                that.oModel.setProperty("/StatementTransactions", filteredData);
+            },
+
         _loadBankRecoData: function (sBankRecoId) {
             
             var that = this;
@@ -165,7 +253,7 @@ sap.ui.define([
                     that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
                 ],
                 urlParameters: {
-                    "$top": "500"
+                    "$top": "5000"
                 },
                 success: function (oData) {
                     that.oModel.setProperty("/BookTransactions", oData.results.map((item) => {
@@ -189,7 +277,7 @@ sap.ui.define([
                     that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
                 ],
                 urlParameters: {
-                    "$top": "500"
+                    "$top": "5000"
                 },
                 success: function (oData) {
                     that.oModel.setProperty("/StatementTransactions", oData.results.map((item) => {
@@ -460,7 +548,7 @@ sap.ui.define([
 
             Dialog.open();
         },
-
+        
            onPrint: function () {
       
             var oData = this.oModel.getData();
@@ -552,7 +640,7 @@ sap.ui.define([
                             that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
                         ],
                         urlParameters: {
-                            "$top": "500"
+                            "$top": "5000"
                         },
                         success: function (data) {
                             that.oModel.setProperty("/BookTransactions", data.results.map((item) => {
@@ -708,7 +796,7 @@ sap.ui.define([
                             that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
                         ],
                         urlParameters: {
-                            "$top": "500"
+                            "$top": "5000"
                         },
                         success: function (data) {
                             const sortedData = data.results
@@ -844,7 +932,7 @@ sap.ui.define([
                                 that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
                             ],
                             urlParameters: {
-                                "$top": "500"
+                                "$top": "5000"
                             },
                             success: function (data) {
                                 const sortedData = data.results
@@ -905,7 +993,7 @@ sap.ui.define([
                             that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
                         ],
                         urlParameters: {
-                            "$top": "500"
+                            "$top": "5000"
                         },
                         success: function (data) {
                             that.oModel.setProperty("/BookTransactions", data.results.map((item) => {
@@ -927,7 +1015,7 @@ sap.ui.define([
                                     that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
                                 ],
                                 urlParameters: {
-                                    "$top": "500"
+                                    "$top": "5000"
                                 },
                                 success: function (data) {
                                     that.oModel.setProperty("/BookTransactions", data.results.map((item) => {
@@ -1361,20 +1449,17 @@ sap.ui.define([
         },
 
 
-
-
-
-
         onRemainingSelect() {
             let that = this;
             let sBankRecoId = that.oModel.getProperty("/BankRecoId");
+
             // Load Book Transactions
             that.ODataModel.read(`/BankReco('${sBankRecoId}')/to_Booktrans`, {
                 filters: [
                     that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
                 ],
                 urlParameters: {
-                    "$top": "500"
+                    "$top": "5000"
                 },
                 success: function (oData) {
                     that.oModel.setProperty("/BookTransactions", oData.results.map((item) => {
@@ -1397,7 +1482,7 @@ sap.ui.define([
                     that.oModel.getProperty("/Remaining") && new Filter("ClearedVoucherno", FilterOperator.EQ, "")
                 ],
                 urlParameters: {
-                    "$top": "500"
+                    "$top": "5000"
                 },
                 success: function (oData) {
                     that.oModel.setProperty("/StatementTransactions", oData.results.map((item) => {
@@ -1415,8 +1500,6 @@ sap.ui.define([
                     MessageBox.error("Failed to load Statement transactions");
                 }
             });
-
-
         },
 
         onClear: function () {
